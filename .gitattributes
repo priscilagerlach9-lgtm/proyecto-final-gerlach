@@ -1,0 +1,11 @@
+# Normaliza los finales de linea para que el repositorio se vea igual en Windows,
+# macOS y Linux, y para que el notebook no genere diferencias espurias al clonarlo.
+* text=auto eol=lf
+
+# Binarios: no se tocan.
+*.png binary
+*.parquet binary
+
+# Los notebooks se comparan como texto, pero se marcan para que las herramientas no
+# intenten mezclarlos linea por linea: un .ipynb es JSON y hay que resolverlo a mano.
+*.ipynb text merge=binary
