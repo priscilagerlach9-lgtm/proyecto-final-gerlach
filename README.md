@@ -156,6 +156,60 @@ real es que quien sabe menos se informa por redes sociales, quien se informa por
 espera retornos más altos, y quien espera más toma más riesgo. **De dónde saca la
 información el cliente pesa 1,8 veces más que cuánto sabe.**
 
+### Los cuatro perfiles nuevos
+
+La segmentación se construyó con k-medias sobre diez variables de comportamiento y situación
+financiera, **sin usar la autodeclaración ni la edad**. Las siluetas son bajas (0,22–0,25),
+así que la elección de cuatro grupos se justifica por interpretabilidad y se valida contra
+variables que no participaron del agrupamiento: edad (F = 6,97, p = 0,0001), puntaje del test
+(F = 18,40, p < 0,00001) e ingreso (F = 3,36, p = 0,019) difieren significativamente entre
+perfiles.
+
+| Perfil | Clientes | Patrimonio | Riesgo | Qué lo define |
+|---|---|---|---|---|
+| **El Previsor** | 231 (37,6 %) | USD 4,71 M (39,4 %) | 1,97 | **Los 231 tienen fondo de emergencia** (6,5 meses). Mayor edad, mejor test, mayor ingreso |
+| **El Desprotegido** | 215 (35,0 %) | USD 3,92 M (32,8 %) | 2,31 | Invierte igual de prudente pero **ninguno tiene fondo de emergencia** |
+| **El Optimista** | 154 (25,0 %) | USD 3,13 M (26,2 %) | 3,19 | **84 % se informa por redes sociales**, espera 23,2 % anual, peor test (3,58) |
+| **El Apostador** | 15 (2,4 %) | USD 0,19 M (1,6 %) | 4,60 | **83 % de su cartera en cripto**, volatilidad 55 %, el de menor patrimonio |
+
+**Los cuatro perfiles se superponen casi por completo en patrimonio** y se separan por
+comportamiento. Segmentar por monto —como hizo la industria durante décadas— los habría
+mezclado en un solo grupo.
+
+El contraste que más importa es entre los dos primeros: **invierten casi igual y tienen
+patrimonios equivalentes, pero uno cubre 6,5 meses de gastos y el otro cero.** Esa diferencia
+no aparece en ninguna escala de riesgo y cambia por completo qué se les puede recomendar.
+
+### Las carteras modelo
+
+Cada cartera verifica **en código** sus tres restricciones: los pesos suman 100 %, cada
+posición supera el mínimo de inversión del instrumento para la cartera mediana del perfil, y
+la liquidez se ajusta a si el perfil tiene colchón. Un `assert` corta la corrida si alguna
+falla.
+
+| Perfil | Riesgo | Volatilidad | Retorno real | Líquido | Patrimonio mínimo |
+|---|---|---|---|---|---|
+| El Previsor | 2,10 | 5,8 % | 3,56 % | 75 % | USD 4.673 |
+| El Desprotegido | 1,70 | 3,8 % | 2,84 % | 65 % | USD 6.667 |
+| El Optimista | 3,10 | 13,2 % | 5,09 % | 90 % | USD 10.000 |
+| El Apostador | 2,35 | 11,6 % | 5,12 % | 80 % | USD 4.673 |
+
+Se incluye además una **variante ampliada** por perfil, que incorpora los instrumentos de
+mínimo alto y sólo es viable por encima del patrimonio que el notebook calcula.
+
+### El hueco del catálogo
+
+Con una cartera típica de unos USD 11.700, los instrumentos accesibles sin concentrar más de
+un cuarto del patrimonio son los de **riesgo 1 y 2** o los de **riesgo 4 y 5**. El tramo
+intermedio está fuera de alcance: las Notas del Tesoro en UI exigen el 39 % de esa cartera,
+las obligaciones negociables el 43 %, el fideicomiso el 52 % y el inmueble de renta el 683 %.
+El único instrumento de riesgo 3 accesible es el ahorro voluntario en AFAP, que **pierde
+poder de compra** (−0,47 % real) y tiene liquidez muy baja.
+
+Las carteras no saltan de riesgo 1-2 a riesgo 4-5 porque los clientes elijan así: **saltan
+porque el menú no ofrece otra cosa.** Es una limitación de producto que ningún rediseño del
+formulario resuelve.
+
 ### Otros hallazgos
 
 - **Los faltantes no son aleatorios.** Quien no declara su patrimonio tiene una cartera real
@@ -199,6 +253,23 @@ Todo lo de esta carpeta lo regenera el notebook al correr.
 | `3_inconsistencias_por_cliente.csv` | Las 10 reglas de inconsistencia, cliente por cliente |
 | `4_1_radar_perfiles.html` | **Gráfico interactivo** (Plotly): abrir en el navegador |
 | `4_1` a `4_6` `.png` | Los seis gráficos de la Etapa 4 en estático |
+| `5_1_radar_perfiles_nuevos.html` | **Gráfico interactivo** de los cuatro perfiles nuevos |
+| `5_1_radar_perfiles_nuevos.png` | El mismo radar en estático |
+
+---
+
+## Limitaciones declaradas
+
+- **La volatilidad de las carteras modelo está sobreestimada.** Se calcula como promedio
+  ponderado de las volatilidades individuales, lo que equivale a suponer que todos los
+  activos se mueven juntos. Es una cota superior; la volatilidad real sería menor. Calcularla
+  exigiría una matriz de covarianzas que el catálogo no trae.
+- **La cartera es costo de adquisición, no valor de mercado.** El registro de operaciones no
+  tiene ventas ni rescates, así que se asume que ningún cliente desinvirtió.
+- **No se puede afirmar causalidad.** Los datos son de corte transversal: que la fuente de
+  información prediga el riesgo no prueba que lo cause.
+- **Los 73 clientes con operaciones pero sin encuesta** quedaron fuera del análisis. Son el
+  1,7 % del monto y sus identificadores pertenecen a otro bloque de numeración.
 
 ---
 
