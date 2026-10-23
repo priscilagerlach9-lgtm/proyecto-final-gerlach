@@ -258,6 +258,40 @@ Todo lo de esta carpeta lo regenera el notebook al correr.
 
 ---
 
+## Calidad del código
+
+El código del notebook pasa por el flujo de tres pasos del curso. La configuración está en
+`setup.cfg`, así que las herramientas usan el mismo criterio para cualquiera que clone el
+proyecto, sin pasar parámetros a mano.
+
+```bash
+# 1 · formatear
+python -m black --line-length 88 notebooks/
+
+# 2 · estilo y errores (lee setup.cfg)
+python -m flake8 notebooks/
+
+# 3 · diseño
+python -m pylint notebooks/
+```
+
+| Herramienta | Estado |
+|---|---|
+| **black** | Las 97 celdas de código salen formateadas a 88 columnas |
+| **flake8** | Sin avisos de pyflakes, sin imports mal ubicados, sin continuaciones mal indentadas |
+| **pylint** | **9,54 / 10** |
+
+Las exclusiones de pylint están justificadas una por una en `setup.cfg`: `dict(...)` anidado
+en las llamadas a Plotly y Matplotlib, que es el estilo de la documentación de esas
+librerías; nombres de parámetro que coinciden con variables del notebook, inevitable cuando
+todo vive en el ámbito global; y dos falsos positivos. El criterio es leer la salida aviso
+por aviso en vez de perseguir el puntaje.
+
+Los gráficos usan **Matplotlib y Seaborn**, con la interfaz `fig, ax`, y **Plotly** para los
+dos gráficos interactivos. Ninguno tiene el eje truncado.
+
+---
+
 ## Limitaciones declaradas
 
 - **La volatilidad de las carteras modelo está sobreestimada.** Se calcula como promedio
