@@ -14,19 +14,19 @@ respuesta. El problema es que la gente se describe como quiere que la vean, no c
 comporta.
 
 Este proyecto reemplaza esa autodeclaración por una segmentación construida con datos de
-comportamiento. Concretamente:
+comportamiento y situación financiera. Concretamente:
 
 1. **Limpia y audita** la encuesta anual de perfil y el registro de operaciones de la firma
    (duplicados, centinelas de faltante, categorías mal escritas, montos en tres monedas).
 2. **Reconstruye la cartera efectiva** de cada cliente a partir de lo que realmente operó, y
    le calcula un **riesgo efectivo** ponderado por monto invertido.
-3. **Cuantifica la brecha** entre el perfil declarado y el perfil que revela la cartera, y
-   separa los dos desajustes: el conservador con cartera agresiva (riesgo legal) y el
-   agresivo con cartera conservadora (oportunidad comercial perdida).
+3. **Cuantifica la brecha** entre el perfil declarado y el que revela la cartera, y separa
+   los dos desajustes: el conservador con cartera agresiva (riesgo legal) y el agresivo con
+   cartera conservadora (oportunidad comercial).
 4. **Contrasta las expectativas de retorno** contra lo que rinden los instrumentos que el
-   cliente tiene, en términos reales (descontando inflación y tipo de cambio).
-5. **Propone perfiles nuevos con carteras modelo** del catálogo de la firma, respetando
-   mínimos de inversión y necesidad de liquidez.
+   cliente tiene, en términos reales.
+5. **Propone perfiles nuevos, una regla para asignarlos a un cliente nuevo y carteras
+   modelo** del catálogo de la firma, respetando mínimos de inversión y liquidez.
 
 Fecha de corte de todos los datos: **30 de junio de 2026**.
 
@@ -39,6 +39,7 @@ proyecto-final-gerlach/
 ├── README.md               Este archivo
 ├── requirements.txt        Dependencias con versión fijada
 ├── .gitignore
+├── setup.cfg               Configuración de flake8 y pylint
 ├── datos/                  Datos de entrada (no se modifican nunca)
 │   ├── encuesta_inversores.csv
 │   ├── movimientos_cartera.csv
@@ -47,17 +48,17 @@ proyecto-final-gerlach/
 │   └── Info.txt            Diccionario de datos original de la cátedra
 ├── notebooks/
 │   └── proyecto_final_rambla.ipynb    Todo el análisis, en orden
-└── salidas/                Tablas y gráficos que genera el notebook
+└── salidas/                Tablas que genera el notebook
 ```
 
-Los archivos de `datos/` son de **solo lectura**: el notebook los carga y trabaja sobre
+Los archivos de `datos/` son de **solo lectura**: toda la limpieza se hace con código, sobre
 copias en memoria. Todo lo que hay en `salidas/` es regenerable corriendo el notebook.
 
 ---
 
 ## Cómo crear el entorno
 
-Requiere **Python 3.11 o superior** (desarrollado y probado con 3.14.5).
+Requiere **Python 3.11 o superior** (desarrollado y probado con 3.14).
 
 ### Windows (PowerShell)
 
@@ -77,6 +78,8 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
+Si se abre el notebook en VS Code, hay que elegir como kernel el Python de `.venv`.
+
 ---
 
 ## Cómo correrlo
@@ -85,11 +88,9 @@ python -m pip install -r requirements.txt
 jupyter lab notebooks/proyecto_final_rambla.ipynb
 ```
 
-Y en el menú: **Run → Restart Kernel and Run All Cells**.
-
-El notebook está pensado para correr **de arriba abajo sin errores y sin intervención**.
-Usa rutas relativas al propio notebook, así que funciona desde cualquier carpeta siempre
-que se mantenga la estructura del repositorio.
+Y en el menú: **Run → Restart Kernel and Run All Cells**. El notebook corre **de arriba
+abajo sin errores y sin intervención**, y encuentra los datos solo, desde `notebooks/` o
+desde la raíz del repositorio.
 
 Para verificarlo sin abrir JupyterLab:
 
@@ -101,20 +102,22 @@ jupyter execute notebooks/proyecto_final_rambla.ipynb
 
 ## En qué orden está el notebook
 
-| Sección | Contenido |
-|---|---|
-| **0** | Configuración, rutas y constantes de conversión |
-| **1** | Análisis exploratorio y correcciones de calidad de datos |
-| **2** | Creación de variables: monedas, cartera efectiva, riesgo efectivo |
-| **3** | Análisis de negocio: la brecha, las expectativas, qué explica el comportamiento |
-| **4** | Visualización (seis gráficos, uno interactivo con Plotly) |
-| **5** | Perfiles nuevos y carteras modelo |
+1. **Portada y supuestos**: el caso, la fecha de corte que fija la consigna y los supuestos
+   que afectan los resultados.
+2. **Setup**: librerías, rutas y estilo de los gráficos.
+3. **Exploración y calidad de datos**: se cargan los datos crudos y cada problema se
+   muestra, se decide y se corrige en el momento en que aparece, nunca antes.
+4. **Creación de variables**: monedas, cartera efectiva, riesgo efectivo, cortes, retorno
+   real.
+5. **Análisis de negocio**: la brecha, las expectativas, qué explica el comportamiento.
+6. **Visualización** con Plotly.
+7. **Perfiles y carteras modelo**: segmentación, regla de asignación, carteras modelo y
+   rediseño del formulario.
+8. **Conclusiones**.
 
-Cada sección arranca con una celda Markdown que dice qué se va a hacer y termina con las
-conclusiones del tramo. **Toda decisión de limpieza (borrar, imputar, corregir) va
-documentada con el porcentaje de la base afectado antes y después**, según la regla de la
-Etapa 1 de la consigna, y queda registrada automáticamente en
-`salidas/1_bitacora_decisiones.csv`.
+Cada parámetro (meses de reserva, cortes, límites de las carteras) se define justo antes
+de usarse, con una celda que explica de dónde sale. Toda decisión de limpieza (borrar,
+imputar, corregir) imprime cuántas filas toca.
 
 ---
 
@@ -123,196 +126,158 @@ Etapa 1 de la consigna, y queda registrada automáticamente en
 ### La brecha entre lo que dicen y lo que hacen
 
 **El 50,2 % de los clientes con cartera tiene un perfil de riesgo real distinto del que
-declaró.** Pero el número que importa es el **kappa ponderado de Cohen: 0,25** (0,18 sin
-ponderar). Corrigiendo por el acuerdo esperado por azar, la autodeclaración del cliente
-tiene un acuerdo *débil* —insignificante, sin ponderar— con su comportamiento real.
+declaró.** El **kappa ponderado de Cohen es 0,25** (0,18 sin ponderar): corrigiendo por el
+acuerdo esperado por azar, la autodeclaración tiene un acuerdo *débil* con el
+comportamiento real. Con **120 combinaciones de cortes** distintas el desajuste queda entre
+45 % y 58 % y el kappa nunca llega a 0,40.
 
-El hallazgo es robusto: probando **120 combinaciones de cortes** distintas, el desajuste se
-mantiene entre 45,4 % y 57,5 % y el kappa nunca alcanza 0,40.
-
-| Severidad del desajuste | Clientes | Patrimonio |
+| Desajuste | Clientes | Patrimonio |
 |---|---|---|
-| Se dijo conservador y tiene cartera agresiva (**riesgo legal**) | 22 | USD 435.579 |
+| Se dijo conservador y tiene cartera agresiva (**riesgo legal crítico**) | 22 | USD 435.579 |
 | Cartera más riesgosa que lo declarado, en total | 138 (22,0 %) | USD 3.064.919 |
 | Cartera más conservadora (**oportunidad comercial**) | 177 (28,2 %) | USD 3.653.923 |
 
-La asimetría es jurídica: según la normativa del BCU, apartarse del perfil asignado y
-consentido por el cliente genera responsabilidad del intermediario.
+Los sobreexpuestos se informan más por redes (38 % contra 25 % de los que coinciden) y
+esperan más de 30 % anual casi el doble de veces (27 % contra 15 %). La cantidad de
+sobreexpuestos depende de los cortes (de 8 % a 39 %); el desajuste total, no.
 
 ### Las expectativas no son alcanzables
 
-Los **113 clientes que esperan más de 30 % anual** obtienen 7,8 % nominal y 4,7 % real.
-**Ninguno** tiene una cartera capaz de rendir lo que espera, y ninguna cartera posible con
-este catálogo podría: el instrumento más rentable rinde 21,5 % real. Además, del tramo de
-expectativa más bajo al más alto la volatilidad **se triplica** para ganar apenas un cuarto
-más de retorno.
+Los **113 clientes que esperan más de 30 % anual** obtienen 11,3 % nominal en pesos y 4,7 %
+real. Sólo 5 llegan a 30 % nominal, con carteras casi todas en cripto, y en términos reales
+ninguno: ni la cripto (21,5 % real) llega a 30 % en valor esperado.
 
 ### Qué explica de verdad el comportamiento
 
-La relación aparente «el que sabe más de finanzas invierte más conservador» (coeficiente
-−0,219, p < 0,0001) **se desarma al controlar por fuente de información y expectativa de
-retorno**: pierde el 71 % de su magnitud y deja de ser significativa (p = 0,15). La cadena
-real es que quien sabe menos se informa por redes sociales, quien se informa por redes
-espera retornos más altos, y quien espera más toma más riesgo. **De dónde saca la
-información el cliente pesa 1,8 veces más que cuánto sabe.**
+La relación «el que sabe más de finanzas invierte más conservador» (coeficiente −0,22,
+p < 0,0001) **se desarma al controlar por fuente de información y expectativa de retorno**:
+baja a −0,06 y deja de ser significativa (p = 0,14). Es mediación: quien sabe menos se
+informa por redes, quien se informa por redes espera más, y quien espera más toma más
+riesgo. La parte del efecto que pasa por ese camino es −0,16, con un intervalo del 95 % de
+−0,21 a −0,11. La regresión usa errores estándar robustos y las correlaciones son de
+Spearman, con corrección de Holm por comparaciones múltiples.
 
 ### Los cuatro perfiles nuevos
 
-La segmentación se construyó con k-medias sobre diez variables de comportamiento y situación
-financiera, **sin usar la autodeclaración ni la edad**. Las siluetas son bajas (0,22–0,25),
-así que la elección de cuatro grupos se justifica por interpretabilidad y se valida contra
-variables que no participaron del agrupamiento: edad (F = 6,97, p = 0,0001), puntaje del test
-(F = 18,40, p < 0,00001) e ingreso (F = 3,36, p = 0,019) difieren significativamente entre
-perfiles.
+Construidos con k-medias sobre siete variables de comportamiento y situación financiera,
+**sin la autodeclaración**. El codo es suave y la silueta baja (0,23 a 0,27): cuatro grupos
+es una decisión de negocio, porque es la menor cantidad que separa a quien tiene fondo de
+emergencia de quien no. Los perfiles se distinguen por tres señales: más de la mitad en
+cripto, se informa por redes, no tiene fondo. En 250 remuestreos el índice de Rand mediano
+es 0,97 (percentil 10: 0,36, porque el Apostador tiene sólo 15 clientes).
 
-| Perfil | Clientes | Patrimonio | Riesgo | Qué lo define |
+| Perfil | Clientes | Cartera en la firma | Riesgo | Qué lo define |
 |---|---|---|---|---|
-| **El Previsor** | 231 (37,6 %) | USD 4,71 M (39,4 %) | 1,97 | **Los 231 tienen fondo de emergencia** (6,5 meses). Mayor edad, mejor test, mayor ingreso |
-| **El Desprotegido** | 215 (35,0 %) | USD 3,92 M (32,8 %) | 2,31 | Invierte igual de prudente pero **ninguno tiene fondo de emergencia** |
-| **El Optimista** | 154 (25,0 %) | USD 3,13 M (26,2 %) | 3,19 | **84 % se informa por redes sociales**, espera 23,2 % anual, peor test (3,58) |
-| **El Apostador** | 15 (2,4 %) | USD 0,19 M (1,6 %) | 4,60 | **83 % de su cartera en cripto**, volatilidad 55 %, el de menor patrimonio |
+| **El Previsor** | 220 (35,0 %) | USD 4,56 M (37,4 %) | 1,92 | Todos tienen fondo de emergencia (6,4 meses). Mayor edad, mejor test, mayor ingreso |
+| **El Desprotegido** | 226 (36,0 %) | USD 4,06 M (33,2 %) | 2,40 | Invierte con algo más de riesgo que el Previsor pero **ninguno declara fondo de emergencia** |
+| **El Optimista** | 167 (26,6 %) | USD 3,40 M (27,9 %) | 3,04 | El 96 % se informa por redes; espera más de 20 % anual; peor test |
+| **El Apostador** | 15 (2,4 %) | USD 0,19 M (1,5 %) | 4,60 | El 83 % de su cartera en cripto, volatilidad 55 %, el de menor patrimonio |
 
-**Los cuatro perfiles se superponen casi por completo en patrimonio** y se separan por
-comportamiento. Segmentar por monto —como hizo la industria durante décadas— los habría
-mezclado en un solo grupo.
-
-El contraste que más importa es entre los dos primeros: **invierten casi igual y tienen
-patrimonios equivalentes, pero uno cubre 6,5 meses de gastos y el otro cero.** Esa diferencia
-no aparece en ninguna escala de riesgo y cambia por completo qué se les puede recomendar.
+**Para un cliente nuevo**, dos preguntas del formulario (fuente de información y meses de
+gastos cubiertos) asignan bien el perfil en el 94,8 % de los casos de prueba, contra el 37 %
+de asignar a todos el más frecuente; promediando lo que reconoce de cada perfil, el acierto
+es 72,7 %, porque el Apostador no se detecta con ninguna respuesta. A ese perfil lo detecta el
+control anual de la cartera.
 
 ### Las carteras modelo
 
-Cada cartera verifica **en código** sus tres restricciones: los pesos suman 100 %, cada
-posición supera el mínimo de inversión del instrumento para la cartera mediana del perfil, y
-la liquidez se ajusta a si el perfil tiene colchón. Un `assert` corta la corrida si alguna
-falla.
+Para los perfiles sin fondo de emergencia, primero se aparta la reserva de tres meses de
+ingreso (a 70 clientes la reserva se les lleva toda la cartera) y la cartera se arma con
+lo que queda. Cuando lo que el cliente quiere supera lo que puede perder, manda la
+capacidad: sin fondo de emergencia, la volatilidad no pasa de 10 %. Cada cartera verifica
+**en código** que los pesos sumen 100 %, que ninguna posición pase de 30 %, que cada una
+supere el mínimo de inversión para el monto invertible mediano del perfil, que la liquidez
+sea acorde y que se respete la capacidad. Un `assert` corta la corrida si alguna falla.
 
-| Perfil | Riesgo | Volatilidad | Retorno real | Líquido | Patrimonio mínimo |
-|---|---|---|---|---|---|
-| El Previsor | 2,10 | 5,8 % | 3,56 % | 75 % | USD 4.673 |
-| El Desprotegido | 1,70 | 3,8 % | 2,84 % | 65 % | USD 6.667 |
-| El Optimista | 3,10 | 13,2 % | 5,09 % | 90 % | USD 10.000 |
-| El Apostador | 2,35 | 11,6 % | 5,12 % | 80 % | USD 4.673 |
+- **El Previsor** (invertible mediano USD 11.183): riesgo de 1,92 a 1,80, volatilidad 4,3 %,
+  retorno real de 2,57 % a 3,09 %.
+- **El Desprotegido** (USD 6.765): primero el colchón; riesgo de 2,40 a 1,85, volatilidad de
+  5,8 % a 4,5 %, retorno real de 2,92 % a 3,02 %.
+- **El Optimista** (USD 11.023): riesgo de 3,04 a 2,27, volatilidad de 10,1 % a 7,9 %, retorno
+  real de 3,90 % a 4,02 %. 53 Optimistas consintieron el perfil conservador y necesitan
+  re-perfilarse.
+- **El Apostador** (USD 1.801): 30 % fondo local, 30 % plazo fijo en dólares, 20 % dólares
+  líquidos, 10 % cripto y 10 % plazo fijo en pesos. La volatilidad baja de 55 % a 7,9 %. El
+  retorno promedio engaña con tanta volatilidad: hoy promedia 18,4 % real pero crece 7,4 %
+  compuesto; la propuesta crece 2,3 %, y si la cripto cae 60 % pierde el 6 % en vez del
+  49,6 %.
 
-Se incluye además una **variante ampliada** por perfil, que incorpora los instrumentos de
-mínimo alto y sólo es viable por encima del patrimonio que el notebook calcula.
+La volatilidad es un techo en la moneda de cada instrumento y no incluye riesgo cambiario.
 
-### El hueco del catálogo
+### El formulario
 
-Con una cartera típica de unos USD 11.700, los instrumentos accesibles sin concentrar más de
-un cuarto del patrimonio son los de **riesgo 1 y 2** o los de **riesgo 4 y 5**. El tramo
-intermedio está fuera de alcance: las Notas del Tesoro en UI exigen el 39 % de esa cartera,
-las obligaciones negociables el 43 %, el fideicomiso el 52 % y el inmueble de renta el 683 %.
-El único instrumento de riesgo 3 accesible es el ahorro voluntario en AFAP, que **pierde
-poder de compra** (−0,47 % real) y tiene liquidez muy baja.
-
-Las carteras no saltan de riesgo 1-2 a riesgo 4-5 porque los clientes elijan así: **saltan
-porque el menú no ofrece otra cosa.** Es una limitación de producto que ningún rediseño del
-formulario resuelve.
+Deciden la cartera la tolerancia a la pérdida máxima (separa 1,90 puntos de riesgo), la
+frecuencia de monitoreo (1,61), la fuente de información (1,07), el retorno esperado (1,04) y
+el fondo de emergencia. La reacción ante una caída separa 1,36 pero al revés (los que
+venderían todo tienen las carteras más riesgosas), así que queda como pregunta de control.
+Las demográficas no pasan de 0,32 y se mantienen sólo porque las exige la norma. Las siete
+preguntas de preferencia entre instrumentos se sacan: ninguna anticipa lo que el cliente
+compra una vez corregido por comparaciones múltiples.
 
 ### Otros hallazgos
 
 - **Los faltantes no son aleatorios.** Quien no declara su patrimonio tiene una cartera real
-  un 65 % más grande (en mediana) que quien sí lo declara. Borrar las filas incompletas
-  habría eliminado del análisis al segmento más valioso de la firma.
+  un 76 % más grande en mediana (Mann-Whitney, p = 0,001). Se imputa con lo operado por la
+  relación declarado/operado de su cuartil (de 1,78 a 1,29).
 - **La escala de riesgo de la firma está comprimida en el tope.** Correlaciona 0,975 con el
-  estándar regulatorio SRRI, pero le asigna el mismo nivel 5 a las acciones (24 % de
-  volatilidad) y a las criptomonedas (65 %). Hay 19 clientes que el estándar clasifica como
-  agresivos y la escala interna no.
-- **El perfil más ilíquido es el moderado, no el agresivo**: tiene el 54,4 % de su cartera
-  en instrumentos de liquidez muy baja, contra 12,4 % del agresivo.
-- **El 32,3 % de los clientes** tiene al menos una respuesta incompatible con otra del mismo
-  formulario.
+  SRRI, pero le da el mismo 5 a las acciones (24 % de volatilidad) y a la cripto (65 %).
+- **El perfil más ilíquido es el moderado**: el 54,4 % de su cartera en instrumentos de
+  liquidez muy baja.
+- **Hueco en el catálogo**: con una cartera típica de USD 11.660, el único riesgo 3 accesible
+  es el ahorro en AFAP, que pierde poder de compra.
 
 ---
 
-## Decisiones metodológicas y su fundamento
+## Supuestos que afectan los resultados
 
-Las decisiones de criterio no se tomaron por gusto: se anclaron en estándares citables.
+La lista completa está al principio del notebook. Los que más pesan:
 
-| Decisión | Fundamento |
-|---|---|
-| Cortes del riesgo en **2,5 / 3,5** sobre la escala 1-5 | Reproducen con 93 % de acuerdo la partición del **SRRI** (guía CESR/ESMA 10-673), que clasifica productos en siete clases por volatilidad anualizada |
-| El efectivo se **parte en dos**: hasta 3 meses de ingreso es reserva (fuera de la cartera), el resto es asignación (dentro) | La práctica estándar de planificación financiera deja la reserva de emergencia fuera de la cartera de inversión porque cumple otra función |
-| Riesgo **ponderado por monto**, no promedio simple | 100 clientes (15,9 %) difieren en más de 0,5 puntos entre ambas medidas |
-| El patrimonio faltante se imputa con la **cartera observada** | Los faltantes son MNAR; el registro de operaciones es una fuente independiente que el cliente no puede falsear |
-| Fechas parseadas **por patrón**, no con `format="mixed"` | El archivo mezcla dos formatos y `mixed` con `dayfirst` fechaba 101 encuestas después de la fecha de corte |
-| Retorno real deflactado por la inflación de **cada moneda** | Un retorno nominal en pesos no se compara con uno en dólares; se incluye una versión de sensibilidad en pesos reales |
+- La fecha de corte de toda la información es el 30/06/2026, la que fija la consigna.
+- Todas las operaciones se pasan a dólares con el tipo de cambio y la UI del 30/06/2026.
+- La cartera es costo de adquisición: no hay ventas, así que se asume que nadie desinvirtió.
+- El retorno de cada instrumento es su histórico del catálogo, y el real se calcula con la
+  inflación de los últimos 12 meses.
+- La reserva de emergencia es 3 meses del ingreso declarado, el mínimo de la regla habitual
+  de 3 a 6 meses de gastos.
+- La volatilidad de las carteras modelo es un techo en la moneda de cada instrumento: no hay
+  covarianzas y no incluye el riesgo cambiario.
+- Los datos son de corte transversal: se habla de asociación, no de causalidad.
 
 ---
 
 ## Qué hay en `salidas/`
 
-Todo lo de esta carpeta lo regenera el notebook al correr.
-
 | Archivo | Contenido |
 |---|---|
-| `1_bitacora_decisiones.csv` | Las 17 decisiones de limpieza con el % de la base afectado |
-| `1_4_faltantes_por_columna.png` · `1_7_faltante_no_aleatorio.png` | Gráficos de la auditoría de calidad |
 | `3_clientes_criticos_sobreexpuestos.csv` | Los 22 clientes del caso crítico, para acción comercial |
-| `3_inconsistencias_por_cliente.csv` | Las 10 reglas de inconsistencia, cliente por cliente |
-| `4_1_radar_perfiles.html` | **Gráfico interactivo** (Plotly): abrir en el navegador |
-| `4_1` a `4_6` `.png` | Los seis gráficos de la Etapa 4 en estático |
-| `5_1_radar_perfiles_nuevos.html` | **Gráfico interactivo** de los cuatro perfiles nuevos |
-| `5_1_radar_perfiles_nuevos.png` | El mismo radar en estático |
+| `3_inconsistencias_por_cliente.csv` | Las reglas de inconsistencia, cliente por cliente |
+| `*.parquet` | Bases limpias intermedias (no se versionan) |
 
 ---
 
 ## Calidad del código
 
-El código del notebook pasa por el flujo de tres pasos del curso. La configuración está en
-`setup.cfg`, así que las herramientas usan el mismo criterio para cualquiera que clone el
-proyecto, sin pasar parámetros a mano.
+El código sigue el flujo del curso, con la configuración en `setup.cfg`. flake8 y pylint no
+leen `.ipynb`, así que se corren sobre el notebook exportado a `.py`. Las herramientas no
+están en `requirements.txt` porque no hacen falta para correr el análisis:
 
 ```bash
-# 1 · formatear
-python -m black --line-length 88 notebooks/
-
-# 2 · estilo y errores (lee setup.cfg)
-python -m flake8 notebooks/
-
-# 3 · diseño
-python -m pylint notebooks/
+python -m pip install black flake8 pylint
+python -m jupyter nbconvert --to script notebooks/proyecto_final_rambla.ipynb --output-dir revision
+python -m flake8 revision/proyecto_final_rambla.py
+python -m pylint revision/proyecto_final_rambla.py
 ```
 
-| Herramienta | Estado |
-|---|---|
-| **black** | Las 97 celdas de código salen formateadas a 88 columnas |
-| **flake8** | Sin avisos de pyflakes, sin imports mal ubicados, sin continuaciones mal indentadas |
-| **pylint** | **9,54 / 10** |
+El código de las celdas está formateado con black a 88 columnas y flake8 no da avisos. Las
+exclusiones de pylint están justificadas una por una en `setup.cfg`.
 
-Las exclusiones de pylint están justificadas una por una en `setup.cfg`: `dict(...)` anidado
-en las llamadas a Plotly y Matplotlib, que es el estilo de la documentación de esas
-librerías; nombres de parámetro que coinciden con variables del notebook, inevitable cuando
-todo vive en el ámbito global; y dos falsos positivos. El criterio es leer la salida aviso
-por aviso en vez de perseguir el puntaje.
+**Sobre lo que está en el repositorio.** Los datos de `datos/` están versionados, a
+diferencia del `.gitignore` del curso, porque el proyecto se corrige ejecutándolo y tiene que
+correr con sólo clonarlo. El notebook se sube ejecutado, con sus salidas, para que se pueda
+leer sin correrlo.
 
-Los gráficos usan **Matplotlib y Seaborn**, con la interfaz `fig, ax`, y **Plotly** para los
-dos gráficos interactivos. Ninguno tiene el eje truncado.
-
----
-
-## Limitaciones declaradas
-
-- **La volatilidad de las carteras modelo está sobreestimada.** Se calcula como promedio
-  ponderado de las volatilidades individuales, lo que equivale a suponer que todos los
-  activos se mueven juntos. Es una cota superior; la volatilidad real sería menor. Calcularla
-  exigiría una matriz de covarianzas que el catálogo no trae.
-- **La cartera es costo de adquisición, no valor de mercado.** El registro de operaciones no
-  tiene ventas ni rescates, así que se asume que ningún cliente desinvirtió.
-- **No se puede afirmar causalidad.** Los datos son de corte transversal: que la fuente de
-  información prediga el riesgo no prueba que lo cause.
-- **Los 73 clientes con operaciones pero sin encuesta** quedaron fuera del análisis. Son el
-  1,7 % del monto y sus identificadores pertenecen a otro bloque de numeración.
-
----
-
-## Nota sobre los gráficos
-
-Los gráficos interactivos están hechos con **Plotly**. Para que se vean en GitHub (que no
-ejecuta JavaScript al previsualizar un `.ipynb`), cada gráfico interactivo se acompaña de
-una versión estática en `salidas/`. Si al abrir el notebook en GitHub un gráfico de Plotly
-aparece en blanco, es esa limitación del visor: corriendo el notebook localmente se ve.
+Los gráficos están hechos con **Plotly**. GitHub no ejecuta JavaScript al previsualizar un
+`.ipynb`, así que ahí pueden aparecer en blanco: corriendo el notebook se ven.
 
 ---
 

@@ -25,6 +25,9 @@ desktop.ini
 .idea/
 
 # Resultados intermedios en parquet: son cache que el notebook reconstruye al correr.
-# Los graficos (.png), las tablas (.csv) y el grafico interactivo (.html) SI se versionan:
-# el README los referencia y hacen falta para la presentacion ejecutiva.
+# Las tablas .csv de salidas/ SI se versionan: el README las referencia y la presentacion
+# usa sus numeros. Los graficos no se guardan como archivo: se ven al correr el notebook.
 salidas/*.parquet
+
+# Notebook exportado a .py para correr flake8 y pylint (ver README).
+revision/
